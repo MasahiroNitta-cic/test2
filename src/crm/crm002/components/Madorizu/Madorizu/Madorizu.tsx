@@ -210,8 +210,12 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           const touch2 = e.touches[1];
           if (!touch1 || !touch2) return;
           const distance = calculateDistance(touch1, touch2);
+          // 直接 Ref に保存（即座に利用可能にする）
+          pinchDistanceRef.current = distance;
           setPinchDistance(distance);
-          setPinchCenter(calculatePinchCenter(touch1, touch2));
+          const center = calculatePinchCenter(touch1, touch2);
+          pinchCenterRef.current = center;
+          setPinchCenter(center);
           // ピンチ開始時のズームレベルを記録（常に最新値を使用）
           initialPinchZoomLevelRef.current = currentZoomLevelRef.current;
           setIsDragging(false);
@@ -338,7 +342,9 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       const handleTouchEnd = (e: React.TouchEvent) => {
         // ピンチ操作の終了
         if (e.touches.length < 2) {
+          pinchDistanceRef.current = null;
           setPinchDistance(null);
+          pinchCenterRef.current = null;
           setPinchCenter(null);
           // ピンチ開始時のズームレベルをリセット
           initialPinchZoomLevelRef.current = 1;
