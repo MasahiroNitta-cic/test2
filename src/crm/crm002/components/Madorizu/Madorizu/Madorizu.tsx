@@ -84,6 +84,13 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     const pinchCenterRef = useRef<{ x: number; y: number } | null>(null);
     // ピンチ開始時のズームレベルを記録（累積を防ぐため）
     const initialPinchZoomLevelRef = useRef<number>(1);
+    // 常に最新のズームレベルを保持
+    const currentZoomLevelRef = useRef<number>(1);
+    // 常に最新の画像位置を保持
+    const currentImagePositionRef = useRef<{ x: number; y: number }>({
+      x: 0,
+      y: 0,
+    });
     // 参照はJSX属性のrefを使わず、id経由のDOM取得で対応（markuplintのinvalid-attr回避）
 
     // pinchDistance と pinchCenter を Ref と同期
@@ -91,6 +98,16 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       pinchDistanceRef.current = pinchDistance;
       pinchCenterRef.current = pinchCenter;
     }, [pinchDistance, pinchCenter]);
+
+    // 常に最新のズームレベルを Ref に同期
+    useEffect(() => {
+      currentZoomLevelRef.current = zoomLevel;
+    }, [zoomLevel]);
+
+    // 常に最新の画像位置を Ref に同期
+    useEffect(() => {
+      currentImagePositionRef.current = imagePosition;
+    }, [imagePosition]);
 
     // 外部からマーカーを削除する関数
     const calculateDistance = (
@@ -186,8 +203,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           const distance = calculateDistance(touch1, touch2);
           setPinchDistance(distance);
           setPinchCenter(calculatePinchCenter(touch1, touch2));
-          // ピンチ開始時のズームレベルを記録
-          initialPinchZoomLevelRef.current = zoomLevel;
+          // ピンチ開始時のズームレベルを記録（常に最新値を使用）
+          initialPinchZoomLevelRef.current = currentZoomLevelRef.current;
           setIsDragging(false);
           return;
         }
@@ -232,9 +249,9 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
             const centerDx = newCenter.x - pinchCenterRef.current.x;
             const centerDy = newCenter.y - pinchCenterRef.current.y;
 
-            // 新しい画像位置を計算
-            let newX = imagePosition.x + centerDx * scale;
-            let newY = imagePosition.y + centerDy * scale;
+            // 新しい画像位置を計算（常に最新の画像位置を使用）
+            let newX = currentImagePositionRef.current.x + centerDx * scale;
+            let newY = currentImagePositionRef.current.y + centerDy * scale;
 
             // 画像の移動範囲を制限（フレームからはみ出さないように）
             if (newZoomLevel > 1) {
@@ -284,8 +301,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           const newY = touch.clientY - dragOffset.y;
 
           // 移動範囲を制限（画像の端まで移動可能）
-          const maxOffsetX = (containerSize.width * (zoomLevel - 1)) / 2;
-          const maxOffsetY = (containerSize.height * (zoomLevel - 1)) / 2;
+          const maxOffsetX =
+            (containerSize.width * (currentZoomLevelRef.current - 1)) / 2;
+          const maxOffsetY =
+            (containerSize.height * (currentZoomLevelRef.current - 1)) / 2;
 
           // 画像のアスペクト比を考慮して縦方向の移動範囲を調整
           const imageAspectRatio = imageWidth / imageHeight;
@@ -344,7 +363,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         el.removeEventListener("touchmove", onMove);
         el.removeEventListener("touchend", onEnd);
       };
-    }, [zoomLevel, isDragging, imagePosition, containerSize, dragOffset]);
+    }, [containerSize, dragOffset, imageWidth, imageHeight]);
 
     const handlePlusClick = () => {
       setShowPlusButton(false);
