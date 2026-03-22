@@ -96,7 +96,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     });
     // タッチハンドラは mount 時に一度だけ登録するため、最新のコンテナ・画像サイズは ref で参照する
     const containerSizeRef = useRef(containerSize);
-    const imageDimensionsRef = useRef({ width: imageWidth, height: imageHeight });
+    const imageDimensionsRef = useRef({
+      width: imageWidth,
+      height: imageHeight,
+    });
     // 同上: 1本指ドラッグは touchstart の直後に touchmove が来るため ref を同期的に更新する
     const isDraggingRef = useRef(false);
     const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -374,8 +377,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
 
           // 画像のアスペクト比を考慮して縦方向の移動範囲を調整
           const imageAspectRatio = iw > 0 && ih > 0 ? iw / ih : 1;
-          const containerAspectRatio =
-            cw > 0 && ch > 0 ? cw / ch : 1;
+          const containerAspectRatio = cw > 0 && ch > 0 ? cw / ch : 1;
           const adjustedMaxOffsetY =
             (maxOffsetY * containerAspectRatio) / imageAspectRatio;
 
@@ -652,7 +654,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
                       : handlePlusClick
                   }
                 >
-                  <img src="./images/zoomOut.svg" alt="ズームアウト" />
+                  <img src="./images/zoomIn.svg" alt="ズームイン" />
                 </button>
               ) : (
                 <button
@@ -660,7 +662,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
                   className="zoom-button"
                   onClick={handleMinusClick}
                 >
-                  <img src="./images/zoomIn.svg" alt="ズームイン" />
+                  <img src="./images/zoomOut.svg" alt="ズームアウト" />
                 </button>
               )}
             </div>
