@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useImperativeHandle,
   forwardRef,
+  useRef,
 } from "react";
 import MadorizuMarker from "../MadorizuMarker/MadorizuMarker";
 import "./Madorizu.css";
@@ -78,9 +79,18 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       x: number;
       y: number;
     } | null>(null);
+    // pinchDistance と pinchCenter を Ref でも管理して、常に最新値にアクセス可能にする
+    const pinchDistanceRef = useRef<number | null>(null);
+    const pinchCenterRef = useRef<{ x: number; y: number } | null>(null);
     // 参照はJSX属性のrefを使わず、id経由のDOM取得で対応（markuplintのinvalid-attr回避）
 
-    // ピンチ距離を計算するヘルパー関数
+    // pinchDistance と pinchCenter を Ref と同期
+    useEffect(() => {
+      pinchDistanceRef.current = pinchDistance;
+      pinchCenterRef.current = pinchCenter;
+    }, [pinchDistance, pinchCenter]);
+
+    // 外部からマーカーを削除する関数
     const calculateDistance = (
       touch1: React.Touch,
       touch2: React.Touch,
@@ -196,13 +206,13 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         e.preventDefault();
 
         // ピンチズーム操作（2本指）
-        if (e.touches.length === 2 && pinchDistance !== null) {
+        if (e.touches.length === 2 && pinchDistanceRef.current !== null) {
           const touch1 = e.touches[0];
           const touch2 = e.touches[1];
           if (!touch1 || !touch2) return;
 
           const currentDistance = calculateDistance(touch1, touch2);
-          const scale = currentDistance / pinchDistance;
+          const scale = currentDistance / (pinchDistanceRef.current || 1);
 
           // ズームレベルを計算（最小1倍、最大6倍）
           const newZoomLevel = Math.max(1, Math.min(6, zoomLevel * scale));
@@ -210,9 +220,9 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
 
           // ピンチ中心を基準にズーム位置を調整
           const newCenter = calculatePinchCenter(touch1, touch2);
-          if (pinchCenter) {
-            const centerDx = newCenter.x - pinchCenter.x;
-            const centerDy = newCenter.y - pinchCenter.y;
+          if (pinchCenterRef.current) {
+            const centerDx = newCenter.x - pinchCenterRef.current.x;
+            const centerDy = newCenter.y - pinchCenterRef.current.y;
             setImagePosition({
               x: imagePosition.x + centerDx * scale,
               y: imagePosition.y + centerDy * scale,
