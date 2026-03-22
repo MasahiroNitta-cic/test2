@@ -1,0 +1,29 @@
+.madorizu-marker {
+  height: 24px;
+  pointer-events: none;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  z-index: 10;
+}
+
+.marker-img {
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+.marker-num {
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  left: 50%;
+  line-height: 1;
+  pointer-events: none;
+  position: absolute;
+  text-shadow: 1px 1px 1px rgba(0 0 0 / 80%);
+  top: 50%;
+  transform: translate(-50%, -50%);
+}

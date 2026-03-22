@@ -1,0 +1,36 @@
+/* Marker base: updated to spec (24x24, radius 16, blue background) */
+.madorizu-marker {
+  align-items: center;
+  background: var(
+    --additional-2838a9,
+    #2838a9
+  ); /* custom property name kebab-case */
+  border-radius: 16px;
+  box-sizing: border-box;
+  display: flex;
+  height: 24px;
+  justify-content: center;
+  opacity: 1;
+  padding-left: 2px;
+  padding-right: 2px;
+  pointer-events: none; /* so base clicks continue to underlying map if needed */
+  position: absolute;
+  transform: translate(-50%, -50%) rotate(0deg);
+  width: 24px;
+  z-index: 10;
+}
+
+/* Image no longer needed for new solid style; keep selector in case of legacy markup */
+.marker-img {
+  display: none;
+}
+
+/* Centered number inside marker */
+.marker-num {
+  color: #fff;
+  font-size: 14px; /* adjust to fit within 24x24 circle */
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 0 2px rgba(0 0 0 / 50%);
+}

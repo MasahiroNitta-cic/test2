@@ -1,0 +1,42 @@
+.madorizu-container {
+  max-width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.image-container {
+  left: 50%;
+  position: absolute;
+  top: 50%;
+}
+
+.madorizu-img {
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 4px rgba(0 0 0 / 10%);
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  width: 100%;
+}
+
+.button-container {
+  display: flex;
+  gap: 5px;
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 20;
+}
+
+.zoom-button {
+  align-items: center;
+  background-color: #fff;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0 0 0 / 20%);
+  display: flex;
+  font-size: 14px;
+  font-weight: bold;
+  gap: 4px;
+  padding: 6px 12px;
+}
