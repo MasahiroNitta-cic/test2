@@ -82,6 +82,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     // pinchDistance と pinchCenter を Ref でも管理して、常に最新値にアクセス可能にする
     const pinchDistanceRef = useRef<number | null>(null);
     const pinchCenterRef = useRef<{ x: number; y: number } | null>(null);
+    // ピンチ開始時の2点間距離（ズーム倍率はこれに対する現在距離の比で算出）
+    const initialPinchDistanceRef = useRef<number | null>(null);
+    // 直前フレームの2点間距離（パン補正の増分比に使用）
+    const lastPinchDistanceRef = useRef<number | null>(null);
     // ピンチ開始時のズームレベルを記録（累積を防ぐため）
     const initialPinchZoomLevelRef = useRef<number>(1);
     // 常に最新のズームレベルを保持
@@ -91,6 +95,9 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       x: 0,
       y: 0,
     });
+    // タッチハンドラは mount 時に一度だけ登録するため、最新のコンテナ・画像サイズは ref で参照する
+    const containerSizeRef = useRef(containerSize);
+    const imageDimensionsRef = useRef({ width: imageWidth, height: imageHeight });
     // 参照はJSX属性のrefを使わず、id経由のDOM取得で対応（markuplintのinvalid-attr回避）
 
     // pinchDistance と pinchCenter を Ref と同期
@@ -108,6 +115,14 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     useEffect(() => {
       currentImagePositionRef.current = imagePosition;
     }, [imagePosition]);
+
+    useEffect(() => {
+      containerSizeRef.current = containerSize;
+    }, [containerSize]);
+
+    useEffect(() => {
+      imageDimensionsRef.current = { width: imageWidth, height: imageHeight };
+    }, [imageWidth, imageHeight]);
 
     // 外部からマーカーを削除する関数
     const calculateDistance = (
@@ -212,6 +227,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           const distance = calculateDistance(touch1, touch2);
           // 直接 Ref に保存（即座に利用可能にする）
           pinchDistanceRef.current = distance;
+          initialPinchDistanceRef.current = distance;
+          lastPinchDistanceRef.current = distance;
           setPinchDistance(distance);
           const center = calculatePinchCenter(touch1, touch2);
           pinchCenterRef.current = center;
@@ -240,19 +257,29 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         e.preventDefault();
 
         // ピンチズーム操作（2本指）
-        if (e.touches.length === 2 && pinchDistanceRef.current !== null) {
+        if (
+          e.touches.length === 2 &&
+          initialPinchDistanceRef.current !== null &&
+          lastPinchDistanceRef.current !== null
+        ) {
           const touch1 = e.touches[0];
           const touch2 = e.touches[1];
           if (!touch1 || !touch2) return;
 
           const currentDistance = calculateDistance(touch1, touch2);
-          const scale = currentDistance / (pinchDistanceRef.current || 1);
+          const initialDist = initialPinchDistanceRef.current;
+          const lastDist = lastPinchDistanceRef.current;
+          // ズームはピンチ開始からの距離比で一貫して累積（フレームごとに基準を更新しない）
+          const totalScale =
+            initialDist > 0 ? currentDistance / initialDist : 1;
+          // パン補正は直前フレームからの距離比
+          const frameScale = lastDist > 0 ? currentDistance / lastDist : 1;
 
-          // ズームレベルを計算（初期ズームレベルに対する相対的な変化）
+          // ズームレベルを計算（ピンチ開始時のズーム × 全体のスケール）
           // 最小1倍、最大6倍
           const newZoomLevel = Math.max(
             1,
-            Math.min(6, initialPinchZoomLevelRef.current * scale),
+            Math.min(6, initialPinchZoomLevelRef.current * totalScale),
           );
           setZoomLevel(newZoomLevel);
 
@@ -262,20 +289,26 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
             const centerDx = newCenter.x - pinchCenterRef.current.x;
             const centerDy = newCenter.y - pinchCenterRef.current.y;
 
+            const { width: cw, height: ch } = containerSizeRef.current;
+            const { width: iw, height: ih } = imageDimensionsRef.current;
+
             // 新しい画像位置を計算（常に最新の画像位置を使用）
-            let newX = currentImagePositionRef.current.x + centerDx * scale;
-            let newY = currentImagePositionRef.current.y + centerDy * scale;
+            let newX =
+              currentImagePositionRef.current.x + centerDx * frameScale;
+            let newY =
+              currentImagePositionRef.current.y + centerDy * frameScale;
 
             // 画像の移動範囲を制限（フレームからはみ出さないように）
-            if (newZoomLevel > 1) {
-              const maxOffsetX = (containerSize.width * (newZoomLevel - 1)) / 2;
-              const maxOffsetY =
-                (containerSize.height * (newZoomLevel - 1)) / 2;
+            if (newZoomLevel <= 1) {
+              newX = 0;
+              newY = 0;
+            } else if (cw > 0 && ch > 0 && iw > 0 && ih > 0) {
+              const maxOffsetX = (cw * (newZoomLevel - 1)) / 2;
+              const maxOffsetY = (ch * (newZoomLevel - 1)) / 2;
 
               // 画像のアスペクト比を考慮して縦方向の移動範囲を調整
-              const imageAspectRatio = imageWidth / imageHeight;
-              const containerAspectRatio =
-                containerSize.width / containerSize.height;
+              const imageAspectRatio = iw / ih;
+              const containerAspectRatio = cw / ch;
               const adjustedMaxOffsetY =
                 (maxOffsetY * containerAspectRatio) / imageAspectRatio;
 
@@ -284,10 +317,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
                 -adjustedMaxOffsetY,
                 Math.min(adjustedMaxOffsetY, newY),
               );
-            } else {
-              // ズームレベル1倍（フレームと同じサイズ）の場合は移動不可
-              newX = 0;
-              newY = 0;
             }
 
             setImagePosition({
@@ -297,6 +326,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
             setPinchCenter(newCenter);
           }
 
+          lastPinchDistanceRef.current = currentDistance;
+          pinchDistanceRef.current = currentDistance;
           setPinchDistance(currentDistance);
           setIsDragging(false);
           return;
@@ -343,6 +374,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         // ピンチ操作の終了
         if (e.touches.length < 2) {
           pinchDistanceRef.current = null;
+          initialPinchDistanceRef.current = null;
+          lastPinchDistanceRef.current = null;
           setPinchDistance(null);
           pinchCenterRef.current = null;
           setPinchCenter(null);
@@ -390,6 +423,9 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       setShowPlusButton(true);
       setZoomLevel(1);
       setImagePosition({ x: 0, y: 0 }); // ズームアウト時に位置をリセット
+      pinchDistanceRef.current = null;
+      initialPinchDistanceRef.current = null;
+      lastPinchDistanceRef.current = null;
       setPinchDistance(null);
       setPinchCenter(null);
     };
