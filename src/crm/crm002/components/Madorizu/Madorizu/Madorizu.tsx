@@ -82,6 +82,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     // pinchDistance と pinchCenter を Ref でも管理して、常に最新値にアクセス可能にする
     const pinchDistanceRef = useRef<number | null>(null);
     const pinchCenterRef = useRef<{ x: number; y: number } | null>(null);
+    // ピンチ開始時のズームレベルを記録（累積を防ぐため）
+    const initialPinchZoomLevelRef = useRef<number>(1);
     // 参照はJSX属性のrefを使わず、id経由のDOM取得で対応（markuplintのinvalid-attr回避）
 
     // pinchDistance と pinchCenter を Ref と同期
@@ -184,6 +186,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           const distance = calculateDistance(touch1, touch2);
           setPinchDistance(distance);
           setPinchCenter(calculatePinchCenter(touch1, touch2));
+          // ピンチ開始時のズームレベルを記録
+          initialPinchZoomLevelRef.current = zoomLevel;
           setIsDragging(false);
           return;
         }
@@ -214,8 +218,12 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           const currentDistance = calculateDistance(touch1, touch2);
           const scale = currentDistance / (pinchDistanceRef.current || 1);
 
-          // ズームレベルを計算（最小1倍、最大6倍）
-          const newZoomLevel = Math.max(1, Math.min(6, zoomLevel * scale));
+          // ズームレベルを計算（初期ズームレベルに対する相対的な変化）
+          // 最小1倍、最大6倍
+          const newZoomLevel = Math.max(
+            1,
+            Math.min(6, initialPinchZoomLevelRef.current * scale),
+          );
           setZoomLevel(newZoomLevel);
 
           // ピンチ中心を基準にズーム位置を調整
@@ -223,9 +231,38 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           if (pinchCenterRef.current) {
             const centerDx = newCenter.x - pinchCenterRef.current.x;
             const centerDy = newCenter.y - pinchCenterRef.current.y;
+
+            // 新しい画像位置を計算
+            let newX = imagePosition.x + centerDx * scale;
+            let newY = imagePosition.y + centerDy * scale;
+
+            // 画像の移動範囲を制限（フレームからはみ出さないように）
+            if (newZoomLevel > 1) {
+              const maxOffsetX = (containerSize.width * (newZoomLevel - 1)) / 2;
+              const maxOffsetY =
+                (containerSize.height * (newZoomLevel - 1)) / 2;
+
+              // 画像のアスペクト比を考慮して縦方向の移動範囲を調整
+              const imageAspectRatio = imageWidth / imageHeight;
+              const containerAspectRatio =
+                containerSize.width / containerSize.height;
+              const adjustedMaxOffsetY =
+                (maxOffsetY * containerAspectRatio) / imageAspectRatio;
+
+              newX = Math.max(-maxOffsetX, Math.min(maxOffsetX, newX));
+              newY = Math.max(
+                -adjustedMaxOffsetY,
+                Math.min(adjustedMaxOffsetY, newY),
+              );
+            } else {
+              // ズームレベル1倍（フレームと同じサイズ）の場合は移動不可
+              newX = 0;
+              newY = 0;
+            }
+
             setImagePosition({
-              x: imagePosition.x + centerDx * scale,
-              y: imagePosition.y + centerDy * scale,
+              x: newX,
+              y: newY,
             });
             setPinchCenter(newCenter);
           }
@@ -275,6 +312,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         if (e.touches.length < 2) {
           setPinchDistance(null);
           setPinchCenter(null);
+          // ピンチ開始時のズームレベルをリセット
+          initialPinchZoomLevelRef.current = 1;
         }
 
         if (isDragging && e.touches.length === 0) {
