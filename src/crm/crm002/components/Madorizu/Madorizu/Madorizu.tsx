@@ -157,7 +157,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       updateContainerSize();
       window.addEventListener("resize", updateContainerSize);
       return () => window.removeEventListener("resize", updateContainerSize);
-    }, []);
+    }, [imageData]);
 
     // タッチイベントは addEventListener で付与（onTouch* 属性を使わない）
     useEffect(() => {
