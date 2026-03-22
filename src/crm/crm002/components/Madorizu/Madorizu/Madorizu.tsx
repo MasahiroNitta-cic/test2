@@ -98,6 +98,9 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     // タッチハンドラは mount 時に一度だけ登録するため、最新のコンテナ・画像サイズは ref で参照する
     const containerSizeRef = useRef(containerSize);
     const imageDimensionsRef = useRef({ width: imageWidth, height: imageHeight });
+    // 同上: 1本指ドラッグは touchstart の直後に touchmove が来るため ref を同期的に更新する
+    const isDraggingRef = useRef(false);
+    const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     // 参照はJSX属性のrefを使わず、id経由のDOM取得で対応（markuplintのinvalid-attr回避）
 
     // pinchDistance と pinchCenter を Ref と同期
@@ -123,6 +126,14 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     useEffect(() => {
       imageDimensionsRef.current = { width: imageWidth, height: imageHeight };
     }, [imageWidth, imageHeight]);
+
+    useEffect(() => {
+      isDraggingRef.current = isDragging;
+    }, [isDragging]);
+
+    useEffect(() => {
+      dragOffsetRef.current = dragOffset;
+    }, [dragOffset]);
 
     // 外部からマーカーを削除する関数
     const calculateDistance = (
@@ -235,6 +246,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           setPinchCenter(center);
           // ピンチ開始時のズームレベルを記録（常に最新値を使用）
           initialPinchZoomLevelRef.current = currentZoomLevelRef.current;
+          isDraggingRef.current = false;
           setIsDragging(false);
           return;
         }
@@ -243,13 +255,16 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         if (currentZoomLevelRef.current > 1 && e.touches.length === 1) {
           const touch = e.touches[0];
           if (!touch) return;
+          const nextOffset = {
+            x: touch.clientX - currentImagePositionRef.current.x,
+            y: touch.clientY - currentImagePositionRef.current.y,
+          };
+          dragOffsetRef.current = nextOffset;
+          isDraggingRef.current = true;
           setIsDragging(true);
           setDragStartPosition({ x: touch.clientX, y: touch.clientY });
           setDragEndPosition(null);
-          setDragOffset({
-            x: touch.clientX - currentImagePositionRef.current.x,
-            y: touch.clientY - currentImagePositionRef.current.y,
-          });
+          setDragOffset(nextOffset);
         }
       };
 
@@ -329,31 +344,39 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           lastPinchDistanceRef.current = currentDistance;
           pinchDistanceRef.current = currentDistance;
           setPinchDistance(currentDistance);
+          isDraggingRef.current = false;
           setIsDragging(false);
           return;
         }
 
         // 1本指のドラッグ操作
-        if (isDragging && zoomLevel > 1 && e.touches.length === 1) {
+        if (
+          isDraggingRef.current &&
+          currentZoomLevelRef.current > 1 &&
+          e.touches.length === 1
+        ) {
           // タッチ座標取得（1本指のみ対応）
           const touch = e.touches[0];
           if (!touch) return;
 
           setDragEndPosition({ x: touch.clientX, y: touch.clientY });
 
-          const newX = touch.clientX - dragOffset.x;
-          const newY = touch.clientY - dragOffset.y;
+          const off = dragOffsetRef.current;
+          const newX = touch.clientX - off.x;
+          const newY = touch.clientY - off.y;
+
+          const { width: cw, height: ch } = containerSizeRef.current;
+          const { width: iw, height: ih } = imageDimensionsRef.current;
+          const zl = currentZoomLevelRef.current;
 
           // 移動範囲を制限（画像の端まで移動可能）
-          const maxOffsetX =
-            (containerSize.width * (currentZoomLevelRef.current - 1)) / 2;
-          const maxOffsetY =
-            (containerSize.height * (currentZoomLevelRef.current - 1)) / 2;
+          const maxOffsetX = (cw * (zl - 1)) / 2;
+          const maxOffsetY = (ch * (zl - 1)) / 2;
 
           // 画像のアスペクト比を考慮して縦方向の移動範囲を調整
-          const imageAspectRatio = imageWidth / imageHeight;
+          const imageAspectRatio = iw > 0 && ih > 0 ? iw / ih : 1;
           const containerAspectRatio =
-            containerSize.width / containerSize.height;
+            cw > 0 && ch > 0 ? cw / ch : 1;
           const adjustedMaxOffsetY =
             (maxOffsetY * containerAspectRatio) / imageAspectRatio;
 
@@ -383,12 +406,13 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           initialPinchZoomLevelRef.current = 1;
         }
 
-        if (isDragging && e.touches.length === 0) {
+        if (isDraggingRef.current && e.touches.length === 0) {
           const touch = e.changedTouches[0];
           if (touch) {
             setDragEndPosition({ x: touch.clientX, y: touch.clientY });
           }
         }
+        isDraggingRef.current = false;
         setIsDragging(false);
       };
 
