@@ -162,6 +162,15 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         const height = img.naturalHeight;
         setImageWidth(width);
         setImageHeight(height);
+
+        // 画像ロード後、コンテナサイズも更新
+        const el = document.querySelector(
+          ".madorizu-container",
+        ) as HTMLDivElement | null;
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          setContainerSize({ width: rect.width, height: rect.height });
+        }
       };
 
       if (img.complete) {
@@ -210,15 +219,15 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         }
 
         // 1本指のドラッグ操作
-        if (zoomLevel > 1 && e.touches.length === 1) {
+        if (currentZoomLevelRef.current > 1 && e.touches.length === 1) {
           const touch = e.touches[0];
           if (!touch) return;
           setIsDragging(true);
           setDragStartPosition({ x: touch.clientX, y: touch.clientY });
           setDragEndPosition(null);
           setDragOffset({
-            x: touch.clientX - imagePosition.x,
-            y: touch.clientY - imagePosition.y,
+            x: touch.clientX - currentImagePositionRef.current.x,
+            y: touch.clientY - currentImagePositionRef.current.y,
           });
         }
       };
@@ -363,7 +372,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         el.removeEventListener("touchmove", onMove);
         el.removeEventListener("touchend", onEnd);
       };
-    }, [containerSize, dragOffset, imageWidth, imageHeight]);
+    }, []);
 
     const handlePlusClick = () => {
       setShowPlusButton(false);
