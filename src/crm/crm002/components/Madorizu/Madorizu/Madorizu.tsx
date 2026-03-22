@@ -49,7 +49,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     },
     ref,
   ) => {
-    const [showPlusButton, setShowPlusButton] = useState(true);
     const [imageWidth, setImageWidth] = useState(0);
     const [imageHeight, setImageHeight] = useState(0);
     const [zoomLevel, setZoomLevel] = useState(1);
@@ -438,13 +437,11 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     }, []);
 
     const handlePlusClick = () => {
-      setShowPlusButton(false);
       setZoomLevel(2);
       setImagePosition({ x: 0, y: 0 }); // ズーム時に位置をリセット
     };
 
     const handleMinusClick = () => {
-      setShowPlusButton(true);
       setZoomLevel(1);
       setImagePosition({ x: 0, y: 0 }); // ズームアウト時に位置をリセット
       pinchDistanceRef.current = null;
@@ -639,16 +636,14 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           {/* ボタンを右上に配置（image-container の外側に配置してクリックバブルの影響を避ける） */}
           {hasButton && (
             <div className="button-container">
-              {showPlusButton && (
+              {zoomLevel <= 1 ? (
                 <button
                   type="button"
                   className="zoom-button"
                   onClick={
                     hasModal
                       ? (e) => {
-                          // ボタン用のイベントラッパー
                           if (onImageClick) {
-                            // 型安全のため、buttonイベントをimageイベントに変換せず、単純に呼び出す
                             onImageClick(
                               e as unknown as React.MouseEvent<HTMLImageElement>,
                             );
@@ -657,16 +652,15 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
                       : handlePlusClick
                   }
                 >
-                  <img src="./images/zoomIn.svg" alt="ズームイン" />
+                  <img src="./images/zoomOut.svg" alt="ズームアウト" />
                 </button>
-              )}
-              {!showPlusButton && (
+              ) : (
                 <button
                   type="button"
                   className="zoom-button"
                   onClick={handleMinusClick}
                 >
-                  <img src="./images/zoomOut.svg" alt="ズームアウト" />
+                  <img src="./images/zoomIn.svg" alt="ズームイン" />
                 </button>
               )}
             </div>
